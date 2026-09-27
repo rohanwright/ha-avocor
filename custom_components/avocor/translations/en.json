@@ -1,0 +1,52 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "description": "Connect to an Avocor interactive display over its TCP/IP control port.",
+        "data": {
+          "host": "Host",
+          "port": "Port",
+          "display_id": "Display ID",
+          "name": "Name"
+        },
+        "data_description": {
+          "host": "The IP address or hostname of the display.",
+          "port": "The TCP control port configured on the display (default 4664).",
+          "display_id": "The display ID used in the control protocol (default 1)."
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Failed to connect. Check the host, port, and that the display's network control is enabled.",
+      "unknown": "Unexpected error."
+    },
+    "abort": {
+      "already_configured": "This display is already configured."
+    }
+  },
+  "entity": {
+    "select": {
+      "picture_mode": {
+        "name": "Picture mode"
+      }
+    },
+    "number": {
+      "backlight": { "name": "Backlight" },
+      "brightness": { "name": "Brightness" },
+      "contrast": { "name": "Contrast" },
+      "sharpness": { "name": "Sharpness" },
+      "hue": { "name": "Hue" },
+      "saturation": { "name": "Saturation" }
+    },
+    "switch": {
+      "freeze": { "name": "Freeze image" }
+    },
+    "button": {
+      "factory_reset": { "name": "Restore picture/audio defaults" }
+    },
+    "sensor": {
+      "serial_number": { "name": "Serial number" },
+      "firmware_version": { "name": "Firmware version" }
+    }
+  }
+}
