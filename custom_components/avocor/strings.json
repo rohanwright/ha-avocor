@@ -6,13 +6,11 @@
         "data": {
           "host": "Host",
           "port": "Port",
-          "display_id": "Display ID",
           "name": "Name"
         },
         "data_description": {
           "host": "The IP address or hostname of the display.",
-          "port": "The TCP control port configured on the display (default 4664).",
-          "display_id": "The display ID used in the control protocol (default 1)."
+          "port": "The TCP control port configured on the display (default 4884)."
         }
       }
     },

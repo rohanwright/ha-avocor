@@ -10,13 +10,7 @@ from homeassistant.const import CONF_HOST, CONF_NAME, CONF_PORT
 from homeassistant.helpers import config_validation as cv
 
 from .api import AvocorClient, AvocorError
-from .const import (
-    CONF_DISPLAY_ID,
-    DEFAULT_DISPLAY_ID,
-    DEFAULT_NAME,
-    DEFAULT_PORT,
-    DOMAIN,
-)
+from .const import DEFAULT_NAME, DEFAULT_PORT, DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -24,9 +18,6 @@ STEP_USER_DATA_SCHEMA = vol.Schema(
     {
         vol.Required(CONF_HOST): cv.string,
         vol.Required(CONF_PORT, default=DEFAULT_PORT): cv.port,
-        vol.Optional(CONF_DISPLAY_ID, default=DEFAULT_DISPLAY_ID): vol.All(
-            vol.Coerce(int), vol.Range(min=1, max=255)
-        ),
         vol.Optional(CONF_NAME, default=DEFAULT_NAME): cv.string,
     }
 )
@@ -34,9 +25,7 @@ STEP_USER_DATA_SCHEMA = vol.Schema(
 
 async def _validate_and_get_serial(data: dict[str, Any]) -> str:
     """Connect to the display and return its serial number, or raise."""
-    client = AvocorClient(
-        data[CONF_HOST], data[CONF_PORT], data[CONF_DISPLAY_ID], timeout=5.0
-    )
+    client = AvocorClient(data[CONF_HOST], data[CONF_PORT], timeout=5.0)
     try:
         await client.connect()
         return await client.get_serial_number()

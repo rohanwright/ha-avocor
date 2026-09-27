@@ -21,7 +21,8 @@ device with these entities:
 ## Requirements
 
 - The display must be on the same network as Home Assistant, with its
-  Ethernet control port reachable (default TCP port **4664**).
+  Ethernet control port reachable (default TCP port **4884** — the manual
+  documents 4664, but 4884 is what actual AVE-5530 units ship with).
 - Network/TCP control must be enabled on the display.
 - To turn the display on remotely over TCP, its EcoMode (`WFS` command in
   the manual) must be set to keep RS232/network control alive in standby
@@ -44,8 +45,7 @@ Copy `custom_components/avocor` into your Home Assistant `config/custom_componen
 Settings → Devices & Services → Add Integration → "Avocor Interactive Display", then enter:
 
 - **Host** — the display's IP address or hostname
-- **Port** — 4664 by default
-- **Display ID** — 1 by default (the manual documents this as fixed for direct TCP control)
+- **Port** — 4884 by default
 - **Name** — a friendly name for the device
 
 Setup validates the connection by reading the display's serial number, which also becomes the config entry's unique ID.
@@ -60,13 +60,10 @@ directly from the manual's command tables (power, input, volume, picture
 settings, remote-key injection, freeze, factory reset, and read-only
 identification commands).
 
-Since this was implemented from the manual rather than against a live unit,
-one detail is an educated inference rather than a documented certainty: the
-manual doesn't spell out what value byte a *read* request should carry, so
-this integration sends a dummy `0x00`. If reads fail against your actual
-display, that's the first thing to adjust in `api.py` — enable debug logging
-(see below) and compare the raw bytes sent/received against what the display
-expects.
+One detail the manual doesn't spell out: a *read/action* request (TYPE
+`0x01`) carries **no value byte at all** — the frame goes straight from the
+3-letter command to `ETX`. Only a *write* request (TYPE `0x02`) and every
+response from the display include a value byte. `api.py` reflects this.
 
 ## Debug logging
 

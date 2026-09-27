@@ -2,14 +2,18 @@
 
 Implements the "TCP/IP Control Configuration" protocol documented in the
 AVE-5530 User Manual (External Control chapter): a persistent TCP connection
-on port 4664, exchanging fixed-format frames:
+on the display's control port (the manual documents 4664, but shipping units
+default to 4884), exchanging fixed-format frames:
 
     [STX] [IDT] [TYPE] [CMD] [VALUE/REPLY] [ETX]
 
 STX (0x07) and ETX (0x08) are fixed frame delimiters. IDT is the display ID.
 TYPE is 0x01 for a read/action request, 0x02 for a write request, and 0x00
 for the display's response. CMD is a 3-character ASCII mnemonic (e.g. "POW")
-sent as its literal ASCII bytes. VALUE/REPLY is one or more parameter bytes.
+sent as its literal ASCII bytes. VALUE/REPLY is one or more parameter bytes:
+a read (TYPE 0x01) request omits it entirely -- only CMD is sent, with no
+byte between it and ETX -- while a write (TYPE 0x02) request and every
+response always carry it.
 
 The manual does not document a length-prefixed frame, so replies are read
 using a known length per command (see const.COMMAND_REPLY_LENGTH) rather than
@@ -129,10 +133,14 @@ class AvocorClient:
     ) -> bytes:
         """Send one command frame and return its raw reply payload bytes."""
         reply_length = COMMAND_REPLY_LENGTH.get(cmd, 1)
+        # A read/action request carries no value byte at all -- only a write
+        # carries the parameter it is setting. Response frames always carry
+        # a value/reply payload regardless of the request type.
+        value_bytes = bytes([value]) if cmd_type == CommandType.WRITE else b""
         frame = (
             bytes([STX, self._display_id, cmd_type])
             + cmd.encode("ascii")
-            + bytes([value])
+            + value_bytes
             + bytes([ETX])
         )
 

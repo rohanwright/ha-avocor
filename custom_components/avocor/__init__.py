@@ -8,7 +8,6 @@ from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
 
 from .api import AvocorClient, AvocorError
-from .const import CONF_DISPLAY_ID, DEFAULT_DISPLAY_ID
 from .coordinator import AvocorConfigEntry, AvocorCoordinator
 
 _LOGGER = logging.getLogger(__name__)
@@ -26,11 +25,7 @@ PLATFORMS: list[Platform] = [
 
 async def async_setup_entry(hass: HomeAssistant, entry: AvocorConfigEntry) -> bool:
     """Set up Avocor Interactive Display from a config entry."""
-    client = AvocorClient(
-        entry.data[CONF_HOST],
-        entry.data[CONF_PORT],
-        entry.data.get(CONF_DISPLAY_ID, DEFAULT_DISPLAY_ID),
-    )
+    client = AvocorClient(entry.data[CONF_HOST], entry.data[CONF_PORT])
 
     try:
         await client.connect()

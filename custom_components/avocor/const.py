@@ -5,12 +5,10 @@ from enum import IntEnum
 
 DOMAIN = "avocor"
 
-DEFAULT_PORT = 4664
+DEFAULT_PORT = 4884
 DEFAULT_DISPLAY_ID = 0x01
 DEFAULT_NAME = "Avocor Display"
 DEFAULT_SCAN_INTERVAL = 30
-
-CONF_DISPLAY_ID = "display_id"
 
 MANUFACTURER = "Avocor"
 
