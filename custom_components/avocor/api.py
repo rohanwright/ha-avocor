@@ -8,16 +8,25 @@ default to 4884), exchanging fixed-format frames:
     [STX] [IDT] [TYPE] [CMD] [VALUE/REPLY] [ETX]
 
 STX (0x07) and ETX (0x08) are fixed frame delimiters. IDT is the display ID.
-TYPE is 0x01 for a read/action request, 0x02 for a write request, and 0x00
-for the display's response. CMD is a 3-character ASCII mnemonic (e.g. "POW")
-sent as its literal ASCII bytes. VALUE/REPLY is one or more parameter bytes:
-a read (TYPE 0x01) request omits it entirely -- only CMD is sent, with no
-byte between it and ETX -- while a write (TYPE 0x02) request and every
-response always carry it.
+TYPE is 0x01 for a read/action request and 0x02 for a write request. CMD is
+a 3-character ASCII mnemonic (e.g. "POW") sent as its literal ASCII bytes.
+VALUE/REPLY is one or more parameter bytes: a read (TYPE 0x01) request omits
+it entirely -- only CMD is sent, with no byte between it and ETX -- while a
+write (TYPE 0x02) request and every response always carry it.
 
-The manual does not document a length-prefixed frame, so replies are read
-using a known length per command (see const.COMMAND_REPLY_LENGTH) rather than
-scanning for the ETX byte, since a legitimate value byte can equal 0x08.
+The manual states a response always carries TYPE 0x00, but real hardware
+instead echoes back the same TYPE that was requested (0x01 for a read reply,
+0x02 for a write ack); this client validates against the echoed type rather
+than a fixed 0x00.
+
+The manual also does not document a length-prefixed frame. For commands
+whose reply is a single numeric byte, the reply is read as exactly one byte
+before ETX. For the identification commands (serial number, model name,
+firmware version), the manual's stated reply lengths do not match real
+hardware, so those replies are instead read up to the terminating ETX --
+safe there specifically because their payloads are printable ASCII, which
+never contains the ETX control byte (0x08). This would not be safe for a
+single numeric value byte, which could legitimately equal 0x08.
 """
 from __future__ import annotations
 
@@ -47,7 +56,6 @@ from .const import (
     CMD_VOLUME,
     CMD_VOLUME_DOWN,
     CMD_VOLUME_UP,
-    COMMAND_REPLY_LENGTH,
     DEFAULT_DISPLAY_ID,
     ETX,
     FACTORY_RESET_KEEP_COMMUNICATION,
@@ -59,6 +67,7 @@ from .const import (
     PICTURE_MODES_REVERSE,
     REMOTE_KEYS,
     STX,
+    TEXT_REPLY_COMMANDS,
     CommandType,
 )
 
@@ -132,7 +141,6 @@ class AvocorClient:
         self, cmd: str, cmd_type: CommandType, value: int = 0x00
     ) -> bytes:
         """Send one command frame and return its raw reply payload bytes."""
-        reply_length = COMMAND_REPLY_LENGTH.get(cmd, 1)
         # A read/action request carries no value byte at all -- only a write
         # carries the parameter it is setting. Response frames always carry
         # a value/reply payload regardless of the request type.
@@ -153,19 +161,34 @@ class AvocorClient:
             try:
                 self._writer.write(frame)
                 await asyncio.wait_for(self._writer.drain(), self._timeout)
-                response = await asyncio.wait_for(
-                    self._reader.readexactly(_HEADER_LENGTH + reply_length + 1),
-                    self._timeout,
+                header = await asyncio.wait_for(
+                    self._reader.readexactly(_HEADER_LENGTH), self._timeout
                 )
-            except (OSError, asyncio.IncompleteReadError, asyncio.TimeoutError) as err:
+                if cmd in TEXT_REPLY_COMMANDS:
+                    rest = await asyncio.wait_for(
+                        self._reader.readuntil(bytes([ETX])), self._timeout
+                    )
+                else:
+                    rest = await asyncio.wait_for(
+                        self._reader.readexactly(2), self._timeout
+                    )
+            except (
+                OSError,
+                asyncio.IncompleteReadError,
+                asyncio.LimitOverrunError,
+                asyncio.TimeoutError,
+            ) as err:
                 await self.disconnect()
                 raise AvocorConnectionError(
                     f"Communication with {self._host}:{self._port} failed: {err}"
                 ) from err
 
+        response = header + rest
         if response[0] != STX or response[-1] != ETX:
             raise AvocorResponseError(f"Malformed response frame: {response!r}")
-        if response[2] != CommandType.RESPONSE:
+        # Real hardware echoes back the TYPE it was sent, not a fixed 0x00
+        # as the manual states.
+        if response[2] != cmd_type:
             raise AvocorResponseError(f"Unexpected response type in: {response!r}")
         reply_cmd = response[3:6].decode("ascii", errors="replace")
         if reply_cmd != cmd:

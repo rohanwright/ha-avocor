@@ -6,7 +6,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import PICTURE_MODES
-from .coordinator import AvocorConfigEntry, AvocorCoordinator
+from .coordinator import AvocorConfigEntry, AvocorRuntimeData
 from .entity import AvocorEntity
 
 
@@ -26,9 +26,9 @@ class AvocorPictureModeSelect(AvocorEntity, SelectEntity):
     _attr_options = list(PICTURE_MODES)
     _attr_icon = "mdi:palette"
 
-    def __init__(self, coordinator: AvocorCoordinator) -> None:
+    def __init__(self, runtime_data: AvocorRuntimeData) -> None:
         """Initialize the select entity."""
-        super().__init__(coordinator, "picture_mode")
+        super().__init__(runtime_data.slow_coordinator, "picture_mode")
 
     @property
     def current_option(self) -> str | None:

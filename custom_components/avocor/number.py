@@ -14,7 +14,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .api import AvocorClient
-from .coordinator import AvocorConfigEntry, AvocorCoordinator, AvocorData
+from .coordinator import AvocorConfigEntry, AvocorSlowCoordinator, AvocorSlowData
 from .entity import AvocorEntity
 
 
@@ -22,7 +22,7 @@ from .entity import AvocorEntity
 class AvocorNumberDescription(NumberEntityDescription):
     """Describes an Avocor picture-adjustment number entity."""
 
-    value_fn: Callable[[AvocorData], int]
+    value_fn: Callable[[AvocorSlowData], int]
     set_value_fn: Callable[[AvocorClient, int], Awaitable[None]]
 
 
@@ -108,7 +108,7 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up the number entities."""
-    coordinator = entry.runtime_data
+    coordinator = entry.runtime_data.slow_coordinator
     async_add_entities(
         AvocorNumber(coordinator, description) for description in NUMBER_DESCRIPTIONS
     )
@@ -120,7 +120,7 @@ class AvocorNumber(AvocorEntity, NumberEntity):
     entity_description: AvocorNumberDescription
 
     def __init__(
-        self, coordinator: AvocorCoordinator, description: AvocorNumberDescription
+        self, coordinator: AvocorSlowCoordinator, description: AvocorNumberDescription
     ) -> None:
         """Initialize the number entity."""
         super().__init__(coordinator, description.key)

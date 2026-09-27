@@ -8,7 +8,15 @@ DOMAIN = "avocor"
 DEFAULT_PORT = 4884
 DEFAULT_DISPLAY_ID = 0x01
 DEFAULT_NAME = "Avocor Display"
-DEFAULT_SCAN_INTERVAL = 30
+
+# Power and input source are the values most likely to change from outside
+# Home Assistant (e.g. a physical remote or IR receiver), so they're polled
+# on a short interval for responsiveness. Everything else (volume, picture
+# settings, freeze) is polled far less often, since this integration's own
+# writes already trigger an immediate refresh -- the slow poll only exists
+# to catch changes made outside HA.
+FAST_SCAN_INTERVAL = 10
+SLOW_SCAN_INTERVAL = 60
 
 MANUFACTURER = "Avocor"
 
@@ -74,13 +82,16 @@ CMD_OSD_TIMEOUT = "OSO"
 CMD_NETWORK_ENABLE = "NWE"
 CMD_MAC_QUERY = "MAC"
 
-# Reply payload length in bytes, for commands whose reply is not a single byte.
-# Used to know exactly how many bytes to read for a response frame.
-COMMAND_REPLY_LENGTH: dict[str, int] = {
-    CMD_SERIAL_NUMBER: 13,
-    CMD_MODEL_NAME: 13,
-    CMD_FIRMWARE_VERSION: 6,
-}
+# Commands whose reply is a variable-length, printable-ASCII text payload
+# (serial number / model name / firmware version) rather than a single
+# numeric value byte. The manual's stated reply lengths for these do not
+# match real hardware (observed: serial 14 bytes, model 43 bytes, firmware
+# 8 bytes, vs. the manual's 13/13/6), so their replies are instead read up
+# to the terminating ETX -- safe here because ETX (0x08) is a control
+# character that never appears inside printable ASCII text.
+TEXT_REPLY_COMMANDS: frozenset[str] = frozenset(
+    {CMD_SERIAL_NUMBER, CMD_MODEL_NAME, CMD_FIRMWARE_VERSION}
+)
 
 # Input Source Selection (MIN).
 INPUT_SOURCE_VGA = "VGA"

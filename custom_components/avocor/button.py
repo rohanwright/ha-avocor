@@ -6,7 +6,7 @@ from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .coordinator import AvocorConfigEntry, AvocorCoordinator
+from .coordinator import AvocorConfigEntry, AvocorRuntimeData
 from .entity import AvocorEntity
 
 
@@ -31,9 +31,9 @@ class AvocorFactoryResetButton(AvocorEntity, ButtonEntity):
     _attr_icon = "mdi:restore"
     _attr_entity_category = EntityCategory.CONFIG
 
-    def __init__(self, coordinator: AvocorCoordinator) -> None:
+    def __init__(self, runtime_data: AvocorRuntimeData) -> None:
         """Initialize the button."""
-        super().__init__(coordinator, "factory_reset")
+        super().__init__(runtime_data.slow_coordinator, "factory_reset")
 
     async def async_press(self) -> None:
         """Restore factory defaults, keeping communication settings."""

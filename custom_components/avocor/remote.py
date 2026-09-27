@@ -21,7 +21,7 @@ from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import REMOTE_KEYS
-from .coordinator import AvocorConfigEntry, AvocorCoordinator
+from .coordinator import AvocorConfigEntry, AvocorRuntimeData
 from .entity import AvocorEntity
 
 
@@ -39,9 +39,10 @@ class AvocorRemote(AvocorEntity, RemoteEntity):
 
     _attr_name = None
 
-    def __init__(self, coordinator: AvocorCoordinator) -> None:
+    def __init__(self, runtime_data: AvocorRuntimeData) -> None:
         """Initialize the remote entity."""
-        super().__init__(coordinator, "remote")
+        super().__init__(runtime_data.fast_coordinator, "remote")
+        self._slow_coordinator = runtime_data.slow_coordinator
 
     @property
     def is_on(self) -> bool:
@@ -79,3 +80,9 @@ class AvocorRemote(AvocorEntity, RemoteEntity):
             for key in command:
                 await self.coordinator.client.send_remote_key(key)
                 await asyncio.sleep(delay_secs)
+
+        # A key press can affect power/input or picture/audio settings
+        # (e.g. a source key vs. mute/volume/freeze); refresh both rather
+        # than trying to classify which coordinator owns each key.
+        await self.coordinator.async_request_refresh()
+        await self._slow_coordinator.async_request_refresh()

@@ -8,7 +8,12 @@ from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
 
 from .api import AvocorClient, AvocorError
-from .coordinator import AvocorConfigEntry, AvocorCoordinator
+from .coordinator import (
+    AvocorConfigEntry,
+    AvocorFastCoordinator,
+    AvocorRuntimeData,
+    AvocorSlowCoordinator,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -35,18 +40,28 @@ async def async_setup_entry(hass: HomeAssistant, entry: AvocorConfigEntry) -> bo
             f"{entry.data[CONF_PORT]}: {err}"
         ) from err
 
-    coordinator = AvocorCoordinator(hass, entry, client)
+    fast_coordinator = AvocorFastCoordinator(hass, entry, client)
+    slow_coordinator = AvocorSlowCoordinator(hass, entry, client, fast_coordinator)
+
+    runtime_data = AvocorRuntimeData(
+        client=client,
+        fast_coordinator=fast_coordinator,
+        slow_coordinator=slow_coordinator,
+    )
 
     try:
-        coordinator.model_name = await client.get_model_name()
-        coordinator.serial_number = await client.get_serial_number()
-        coordinator.firmware_version = await client.get_firmware_version()
+        runtime_data.model_name = await client.get_model_name()
+        runtime_data.serial_number = await client.get_serial_number()
+        runtime_data.firmware_version = await client.get_firmware_version()
     except AvocorError as err:
         _LOGGER.debug("Could not read display identification: %s", err)
 
-    await coordinator.async_config_entry_first_refresh()
+    # The slow coordinator's first refresh checks the fast coordinator's
+    # last known power state, so the fast one must refresh first.
+    await fast_coordinator.async_config_entry_first_refresh()
+    await slow_coordinator.async_config_entry_first_refresh()
 
-    entry.runtime_data = coordinator
+    entry.runtime_data = runtime_data
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True
 

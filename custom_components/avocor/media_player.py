@@ -11,7 +11,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import INPUT_SOURCES
-from .coordinator import AvocorConfigEntry, AvocorCoordinator
+from .coordinator import AvocorConfigEntry, AvocorRuntimeData
 from .entity import AvocorEntity
 
 _SUPPORTED_FEATURES = (
@@ -34,16 +34,30 @@ async def async_setup_entry(
 
 
 class AvocorMediaPlayer(AvocorEntity, MediaPlayerEntity):
-    """Representation of an Avocor display as a media player."""
+    """Representation of an Avocor display as a media player.
+
+    Power and input source come from the fast coordinator (this entity's
+    primary coordinator); volume and mute come from the slow coordinator,
+    which this entity also listens to directly since a `CoordinatorEntity`
+    only auto-subscribes to the one coordinator passed to its constructor.
+    """
 
     _attr_name = None
     _attr_device_class = MediaPlayerDeviceClass.TV
     _attr_supported_features = _SUPPORTED_FEATURES
     _attr_source_list = list(INPUT_SOURCES)
 
-    def __init__(self, coordinator: AvocorCoordinator) -> None:
+    def __init__(self, runtime_data: AvocorRuntimeData) -> None:
         """Initialize the media player."""
-        super().__init__(coordinator, "media_player")
+        super().__init__(runtime_data.fast_coordinator, "media_player")
+        self._slow_coordinator = runtime_data.slow_coordinator
+
+    async def async_added_to_hass(self) -> None:
+        """Also refresh entity state when the slow coordinator updates."""
+        await super().async_added_to_hass()
+        self.async_on_remove(
+            self._slow_coordinator.async_add_listener(self._handle_coordinator_update)
+        )
 
     @property
     def state(self) -> MediaPlayerState:
@@ -60,12 +74,12 @@ class AvocorMediaPlayer(AvocorEntity, MediaPlayerEntity):
     @property
     def volume_level(self) -> float | None:
         """Return the volume level, 0..1."""
-        return self.coordinator.data.volume / 100
+        return self._slow_coordinator.data.volume / 100
 
     @property
     def is_volume_muted(self) -> bool:
         """Return True if audio is muted."""
-        return self.coordinator.data.muted
+        return self._slow_coordinator.data.muted
 
     async def async_turn_on(self) -> None:
         """Turn the display on."""
@@ -85,19 +99,19 @@ class AvocorMediaPlayer(AvocorEntity, MediaPlayerEntity):
     async def async_set_volume_level(self, volume: float) -> None:
         """Set the volume level, 0..1."""
         await self.coordinator.client.set_volume(round(volume * 100))
-        await self.coordinator.async_request_refresh()
+        await self._slow_coordinator.async_request_refresh()
 
     async def async_volume_up(self) -> None:
         """Increase the volume."""
         await self.coordinator.client.volume_up()
-        await self.coordinator.async_request_refresh()
+        await self._slow_coordinator.async_request_refresh()
 
     async def async_volume_down(self) -> None:
         """Decrease the volume."""
         await self.coordinator.client.volume_down()
-        await self.coordinator.async_request_refresh()
+        await self._slow_coordinator.async_request_refresh()
 
     async def async_mute_volume(self, mute: bool) -> None:
         """Mute or unmute audio."""
         await self.coordinator.client.set_mute(mute)
-        await self.coordinator.async_request_refresh()
+        await self._slow_coordinator.async_request_refresh()

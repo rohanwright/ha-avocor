@@ -50,6 +50,23 @@ Settings → Devices & Services → Add Integration → "Avocor Interactive Disp
 
 Setup validates the connection by reading the display's serial number, which also becomes the config entry's unique ID.
 
+## Polling
+
+Two `DataUpdateCoordinator`s poll the display at different rates, since
+power/input can change from outside Home Assistant (a physical remote or IR
+receiver) while everything else rarely does externally:
+
+- **Fast (10s)** — power state and input source.
+- **Slow (60s)** — volume, mute, picture mode, backlight/brightness/contrast/
+  sharpness/hue/saturation, and freeze state.
+
+Any change made *through* Home Assistant (e.g. `media_player.turn_on`,
+`number.set_value`) triggers an immediate refresh of the relevant
+coordinator, so the polling interval only affects how quickly HA notices a
+change made some other way. Both intervals are constants in
+[`const.py`](custom_components/avocor/const.py) (`FAST_SCAN_INTERVAL`,
+`SLOW_SCAN_INTERVAL`) if you want to tune them.
+
 ## Protocol notes
 
 The control protocol is documented in the AVE-5530 User Manual's "External
@@ -60,10 +77,25 @@ directly from the manual's command tables (power, input, volume, picture
 settings, remote-key injection, freeze, factory reset, and read-only
 identification commands).
 
-One detail the manual doesn't spell out: a *read/action* request (TYPE
-`0x01`) carries **no value byte at all** — the frame goes straight from the
-3-letter command to `ETX`. Only a *write* request (TYPE `0x02`) and every
-response from the display include a value byte. `api.py` reflects this.
+Several details were confirmed against real hardware (three AVE units) and
+differ from what the manual states, since this integration was originally
+written from the manual alone:
+
+- A *read/action* request (TYPE `0x01`) carries **no value byte at all** —
+  the frame goes straight from the 3-letter command to `ETX`. Only a
+  *write* request (TYPE `0x02`) includes a value byte.
+- A response's TYPE byte **echoes the TYPE that was sent** (`0x01` for a
+  read reply, `0x02` for a write ack) — not a fixed `0x00` as the manual
+  states.
+- The read-only identification commands' reply lengths don't match the
+  manual either: `SER` (serial number) returned 14 bytes rather than 13,
+  `MNA` (model name) returned 43 bytes rather than 13, and `GVE` (firmware)
+  returned 8 bytes rather than 6. Those three replies are read up to the
+  terminating `ETX` instead of a fixed length, which is safe there
+  specifically because their payload is always printable ASCII text (never
+  containing the `ETX` control byte).
+
+`api.py` reflects all of the above.
 
 ## Debug logging
 

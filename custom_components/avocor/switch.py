@@ -5,7 +5,7 @@ from homeassistant.components.switch import SwitchEntity
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .coordinator import AvocorConfigEntry, AvocorCoordinator
+from .coordinator import AvocorConfigEntry, AvocorRuntimeData
 from .entity import AvocorEntity
 
 
@@ -24,9 +24,9 @@ class AvocorFreezeSwitch(AvocorEntity, SwitchEntity):
     _attr_translation_key = "freeze"
     _attr_icon = "mdi:pause-box-outline"
 
-    def __init__(self, coordinator: AvocorCoordinator) -> None:
+    def __init__(self, runtime_data: AvocorRuntimeData) -> None:
         """Initialize the switch."""
-        super().__init__(coordinator, "freeze")
+        super().__init__(runtime_data.slow_coordinator, "freeze")
 
     @property
     def is_on(self) -> bool:
